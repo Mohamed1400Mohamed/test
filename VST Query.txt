@@ -1,0 +1,52 @@
+SELECT
+T0.DocNum 'PO Number',
+T0.NumAtCard 'Supplier Ref',convert(varchar(20), T0.DocDate, 34) 'DocDate',T0.DocDueDate,T0.TaxDate,T0.CardCode,T0.CardName,
+T3.Address2,T3.Address3,T3.Street,T3.Block,T3.City,T3.ZipCode,T4.Name 'Cust State Name',T1.ItemCode,T1.Dscription,
+T14.Address2 'S address 2',T14.Address3 'S Address 3',T14.Street 'S Street',T14.Block 'S Block',T14.City 'S City',T14.ZipCode 'S ZipCode',
+T4.Name 'Cust State Name',
+T1.ShipDate,T1.unitMsr,T1.Quantity,T1.LocCode,T21.Location,T1.Price,CASE WHEN T0.DocCur = 'INR' THEN T0.VatSum ELSE T0.VatSumFC END 'VatSum',
+CASE WHEN T0.DocCur = 'INR' THEN T1.LineTotal ELSE T1.TotalFrgn END 'LineTotal',
+ISNULL(T8."ChapterID",T9."ServCode") "HSN/SAC",
+T10.ExpnsCode,T10.LineTotal as 'Freight Total' ,T11.ExpnsName,
+CASE WHEN T0.DocCur = 'INR' THEN 
+(SELECT SUM(A.TaxSum) FROM POR4 A WHERE A.staType = '-100' AND T0.DocEntry = A.DocEntry AND A.LineNum = T1.LineNum) ELSE
+(SELECT SUM(A.TaxSumFrgn) FROM POR4 A WHERE A.staType = '-100' AND T0.DocEntry = A.DocEntry AND A.LineNum = T1.LineNum) END 'CGST Sum',
+CASE WHEN T0.DocCur = 'INR' THEN 
+(SELECT SUM(A.TaxSum) FROM POR4 A WHERE A.staType = '-120' AND T0.DocEntry = A.DocEntry AND A.LineNum = T1.LineNum) ELSE
+(SELECT SUM(A.TaxSumFrgn) FROM POR4 A WHERE A.staType = '-120' AND T0.DocEntry = A.DocEntry AND A.LineNum = T1.LineNum) END 'IGST Sum',
+CASE WHEN T0.DocCur = 'INR' THEN 
+(SELECT SUM(A.TaxSum) FROM POR4 A WHERE A.staType = '-110' AND T0.DocEntry = A.DocEntry AND A.LineNum = T1.LineNum) ELSE
+(SELECT SUM(A.TaxSumFrgn) FROM POR4 A WHERE A.staType = '-110' AND T0.DocEntry = A.DocEntry AND A.LineNum = T1.LineNum) END 'SGST Sum',
+(SELECT A.TaxRate FROM POR4 A WHERE A.staType = '-100' AND T0.DocEntry = A.DocEntry AND A.LineNum = T1.LineNum) 'CGST Rate',
+(SELECT A.TaxRate FROM POR4 A WHERE A.staType = '-120' AND T0.DocEntry = A.DocEntry AND A.LineNum = T1.LineNum) 'IGST Rate',
+(SELECT A.TaxRate FROM POR4 A WHERE A.staType = '-110' AND T0.DocEntry = A.DocEntry AND A.LineNum = T1.LineNum) 'SGST Rate',
+T10.ExpnsCode,T10.LineTotal,T10.LineVat,T10.VatSum,T10.GrsAmount,
+
+ISNULL((Select (case when  sum(A."RvsChrgTax")<=0  then sum(A."TaxSum")/T0."DocRate" else 0 end) From por4 A Where A."DocEntry" = T0."DocEntry" and A.LineNum = T10.LineNum and A."staType" = -100  and A."RelateType" in(3,4)),0) "FrCGSTAmt"
+,ISNULL((Select (case when  sum(A."RvsChrgTax")<=0  then sum(A."TaxSum")/T0."DocRate" else 0 end) From por4 A Where A."DocEntry" = T0."DocEntry" and A.LineNum = T10.LineNum and A."staType" = -110  and A."RelateType" in(3,4)),0) "FrSGSTAmt"
+,ISNULL((Select (case when  sum(A."RvsChrgTax")<=0  then sum(A."TaxSum")/T0."DocRate" else 0 end) From por4 A Where A."DocEntry" = T0."DocEntry" and A.LineNum = T10.LineNum and A."staType" = -120  and A."RelateType" in(3,4)),0) "FrIGSTAmt"
+,ISNULL((Select (case when  sum(A."RvsChrgTax")<=0  then sum(A."TaxSum")/T0."DocRate" else 0 end) From por4 A Where A."DocEntry" = T0."DocEntry" and A.LineNum = T10.LineNum and A."staType" = -150  and A."RelateType" in(3,4)),0) "FrUTGSTAmt",
+
+T5.Building,T5.Block,T5.StreetNo,T5.Street,T5.City,T5.ZipCode,(SELECT Name FROM OCST A WHERE A.Code = T5.State AND A.Country = T5.Country)'State Name',
+ T7.PymntGroup,T0.Comments,T3.GSTRegnNo 'GSTNo',(SELECT ItemName FROM OITM B WHERE B.ItemCode=T1.ItemCode)'Description',
+ T0.DocCur,T0.DocTotal,
+ ---------------Branch Address----------------------------
+ T20.BPLName,T20.Address 'BR Address',T20.Building 'BR Building',T20.Street 'BR Street',T20.StreetNo 'BR Street No',T20.Block 'BR Block',
+ T20.City 'BR City',T20.State 'BR state',T20.County 'BR County',T20.ZipCode 'BR Zip Code'
+
+ ------------------------------------------------
+
+ FROM OPOR T0 INNER JOIN POR1 T1 ON T0.DocEntry = T1.DocEntry
+ left join OBPL T20 on T0.BPLId=T20.BPLId
+ left join OLCT T21 on T1.LocCode=T21.Code
+ left join POR3 T10 ON T1.DocEntry=T10.DocEntry 
+ left join OEXD T11 ON T10.ExpnsCode=T11.ExpnsCode
+ INNER JOIN OCRD T2 ON T2.CardCode = T0.CardCode 
+ INNER JOIN OCTG T7 ON T7.GroupNum = T0.GroupNum 
+ LEFT JOIN CRD1 T3 ON T3.CardCode = T2.CardCode AND T3.AdresType = 'B' AND T3.Address = T2.BillToDef
+  LEFT JOIN CRD1 T14 ON T14.CardCode = T2.CardCode AND T14.AdresType = 'S' 
+ LEFT JOIN OCST T4 ON T4.Country = T3.Country AND T4.Code = T3.State   
+ Left Join OSAC T9 ON T1."SacEntry" = T9."AbsEntry"
+Left join OCHP T8 on T1."HsnEntry" = T8."AbsEntry"
+ CROSS JOIN ADM1 T5
+WHERE T0.DocEntry ={?DocKey@}
